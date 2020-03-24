@@ -31,18 +31,12 @@ OBJS = bpf_program.o
 LLC ?= llc
 CLANG ?= clang
 INC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
-EXTRA_CFLAGS ?= -O2 -emit-llvm
-
-# In case up-to-date headers are not installed locally in /usr/include,
-# use source build.
+EXTRA_CFLAGS ?= -O2
 
 linuxhdrs ?= /kernel-src
 
-LINUXINCLUDE = -I$(linuxhdrs)/include \
-	       -I$(linuxhdrs)/include/uapi \
-	       -I$(linuxhdrs)/include/uapi/asm-generic \
-	       -I$(linuxhdrs)/usr/include \
-	       -I$(linuxhdrs)/arch/x86/include
+LINUXINCLUDE = -I$(linuxhdrs)/arch/x86/include \
+	       -I$(linuxhdrs)/include/ 
 
 prefix ?= /usr/local
 
@@ -61,14 +55,8 @@ clean:
 INC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
 
 $(OBJS):  %.o:%.c
-	$(CLANG) $(INC_FLAGS) \
-                -Wno-unused-value -Wno-pointer-sign \
-                -Wno-compare-distinct-pointer-types \
-                -Wno-gnu-variable-sized-type-not-at-end \
-                -Wno-address-of-packed-member -Wno-tautological-compare \
-                -Wno-unknown-warning-option -target bpf \
-                -I../include $(LINUXINCLUDE) \
-                $(EXTRA_CFLAGS) -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+	$(CLANG) -D__KERNEL__ -emit-llvm  $(INC_CFLAGS) -I../include -include asm_goto_workaround.h \
+		$(LINUXINCLUDE) $(EXTRA_CFLAGS) -c $< -o -|llc -march=bpf -mcpu=probe -filetype=obj -o $@
 
 install: $(OBJS)
 	$(install_DIR) -d $(INSTALLPATH) ; \
