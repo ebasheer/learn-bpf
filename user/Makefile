@@ -16,7 +16,7 @@
 # - perf-sys.h is a copy of tools/perf/perf-sys.h
 #
 
-COMMONOBJS = bpf.o bpf_load.o
+COMMONOBJS = bpf.o bpf_load.o 
 
 USERPROG = loader
 USEROBJ = $(USERPROG).o
@@ -25,12 +25,10 @@ OBJS= $(COMMONOBJS) $(USEROBJ)
 
 linuxhdrs ?= /kernel-src
 
-LINUXINCLUDE =  -I$(linuxhdrs)/arch/x86/include/uapi \
-                -I$(linuxhdrs)/arch/x86/include/generated/uapi \
-                -I$(linuxhdrs)/include/generated/uapi \
-                -I$(linuxhdrs)/include/uapi \
-                -I$(linuxhdrs)/include \
-                -I$(linuxhdrs)/tools/lib
+LINUXINCLUDE = -I$(linuxhdrs)/tools/include \
+	       -I$(linuxhdrs)/tools/lib \
+	       -I$(linuxhdrs)/usr/include/ \
+	       -I/usr/include/ 
 
 prefix ?= /usr/local
 
@@ -49,10 +47,10 @@ clean:
 	rm -f $(OBJS) $(PROGS)
 
 %.o: %.c
-	$(CC) -g -Wno-unused-variable -I../include $(LINUXINCLUDE) -c -o $@ $< $(CFLAGS)
+	$(CC) -g -Wno-unused-variable --include $(linuxhdrs)/include/generated/autoconf.h -I../include $(LINUXINCLUDE) -c -o $@ $< $(CFLAGS)
 
 $(PROGS): $(OBJS)
-	$(CC) -g -o $@ $(@).o $(COMMONOBJS) $(CFLAGS) $(LDLIBS)
+	$(CC) -g -o $@ $(@).o -lbcc $(COMMONOBJS) $(CFLAGS) $(LDLIBS)
 
 install: $(PROGS)
 	$(install_DIR) -d $(INSTALLPATH) ; \
