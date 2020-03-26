@@ -16,7 +16,7 @@
 # - perf-sys.h is a copy of tools/perf/perf-sys.h
 #
 
-COMMONOBJS = bpf.o bpf_load.o 
+COMMONOBJS = bpf.o 
 
 USERPROG = loader
 USEROBJ = $(USERPROG).o
@@ -37,7 +37,7 @@ INSTALLPATH = $(prefix)/bin
 install_PROGRAM = install
 install_DIR = install -d
 
-LDLIBS = -lelf
+LDLIBS = -lelf -lbcc
 
 all: $(USERPROG)
 
@@ -50,7 +50,7 @@ clean:
 	$(CC) -g -Wno-unused-variable --include $(linuxhdrs)/include/generated/autoconf.h -I../include $(LINUXINCLUDE) -c -o $@ $< $(CFLAGS)
 
 $(PROGS): $(OBJS)
-	$(CC) -g -o $@ $(@).o -lbcc $(COMMONOBJS) $(CFLAGS) $(LDLIBS)
+	$(CC) -g -o $@ $(@).o $(COMMONOBJS) $(CFLAGS) $(LDLIBS)
 
 install: $(PROGS)
 	$(install_DIR) -d $(INSTALLPATH) ; \

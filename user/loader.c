@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
         // there is kprobe on the same function. libbpf doesn't provid an
         // interface to create an entry handler for a kretprobe. so this
         // will need to be converted to a kprobe API call
-        evfd = bpf_attach_kprobe(progfd, BPF_PROBE_RETURN, "exit_ksys_write", "ksys_write", 0L, 0);
+        evfd = bpf_attach_kprobe(retprogfd, BPF_PROBE_RETURN, "exit_ksys_write", "ksys_write", 0L, 0);
         if (evfd < 0) {
                 printf("attach kprobe \"exit_ksys_write\" failed");
                 return -1;
@@ -78,11 +78,12 @@ int main(int argc, char **argv) {
         // attach BPF program to a kprobe with exit_ksys_write event name
         // and ksys_write the function to probe at offset 0L and maxactive =
         // 0
-        evfd = bpf_attach_kprobe(progfd, BPF_PROBE_ENTRY, "enter_ksys_write", "ksys_write", 0L, 0);
+/*        evfd = bpf_attach_kprobe(progfd, BPF_PROBE_ENTRY, "enter_ksys_write", "ksys_write", 0L, 0);
         if (evfd < 0) {
                 printf("attach kprobe \"enter_ksys_write\" failed");
                 return -1;
         }
+        */
         while(1) {
         }
   return 0;
