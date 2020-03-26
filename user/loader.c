@@ -1,7 +1,6 @@
 #include <bpf/libbpf.h>
 #include <bcc/libbpf.h>
 #include <stdio.h>
-#include "bpf_load.h"
 
 #define ERR_PTR(err)    ((void *)((long)(err)))
 #define PTR_ERR(ptr)    ((long)(ptr))
