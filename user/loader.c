@@ -1,10 +1,22 @@
 #include <bpf/libbpf.h>
 #include <bcc/libbpf.h>
 #include <stdio.h>
+#include <signal.h>
+#include <sys/resource.h>
 
 #define ERR_PTR(err)    ((void *)((long)(err)))
 #define PTR_ERR(ptr)    ((long)(ptr))
 #define IS_ERR(ptr)     ((unsigned long)(ptr) > (unsigned long)(-1000))
+
+#define BPF_PROG "write_errors.o"
+
+
+volatile sig_atomic_t sigint_received = 0;
+
+void sigint_handler(int s)
+{
+  sigint_received = 1;
+}
 
 int main(int argc, char **argv) {
         struct bpf_object *obj;
@@ -12,15 +24,23 @@ int main(int argc, char **argv) {
         struct bpf_link *link, *retlink;
 	struct bpf_map *map;
 	int progfd, retprogfd, evfd, err;
+        struct rlimit r = {10 * 1024 * 1024, RLIM_INFINITY};
+
+        // we might get a operation not permitted on map creation without
+        // this
+        if (setrlimit(RLIMIT_MEMLOCK, &r)) {
+                perror("setrlimit(RLIMIT_MEMLOCK)");
+                return 1;
+        }
 
         // open and interpret the ELF file. I think this also tries
         // to find and attach probepoints based on the name of the section
         // In my program the sections don't match any of those patters so it
         // issues a warning but continues to return a bpf_object
-	obj = bpf_object__open("bpf_program.o");
+	obj = bpf_object__open(BPF_PROG);
 	if(IS_ERR(obj) || !obj) {
-                printf("open test_select_reuseport_kern.o \
-                        obj:%p PTR_ERR(obj):%ld\n", obj, PTR_ERR(obj));
+                printf("bpf_object__open failed obj:%p \
+                        PTR_ERR(obj):%ld\n", obj, PTR_ERR(obj));
                 return -1;
         }
 
@@ -64,26 +84,39 @@ int main(int argc, char **argv) {
                 return -1;
         }
 
-        // attach BPF program to kretprobe. this currently doesn't work when
-        // there is kprobe on the same function. libbpf doesn't provid an
-        // interface to create an entry handler for a kretprobe. so this
-        // will need to be converted to a kprobe API call
-        evfd = bpf_attach_kprobe(retprogfd, BPF_PROBE_RETURN, "exit_ksys_write", "ksys_write", 0L, 0);
+        // attach BPF program to a kprobe with exit_ksys_write event name
+        // and ksys_write the function to probe at offset 0L and maxactive =
+        // 0
+        evfd = bpf_attach_kprobe(progfd, BPF_PROBE_ENTRY, "enter_ksys_write", "ksys_write", 0L, 0);
+        if (evfd < 0) {
+                printf("attach kprobe \"enter_ksys_write\" failed");
+                return -1;
+        }
+
+        // attach BPF program to kretprobe
+        // set maxactive = 60 to avoid losing events
+        // i don't know the optimal value
+        evfd = bpf_attach_kprobe(retprogfd, BPF_PROBE_RETURN, "exit_ksys_write", "ksys_write", 0L, 60);
         if (evfd < 0) {
                 printf("attach kprobe \"exit_ksys_write\" failed");
                 return -1;
         }
 
-        // attach BPF program to a kprobe with exit_ksys_write event name
-        // and ksys_write the function to probe at offset 0L and maxactive =
-        // 0
-/*        evfd = bpf_attach_kprobe(progfd, BPF_PROBE_ENTRY, "enter_ksys_write", "ksys_write", 0L, 0);
-        if (evfd < 0) {
-                printf("attach kprobe \"enter_ksys_write\" failed");
-                return -1;
+        // cleanup on exit
+        signal(SIGINT, sigint_handler);
+        while(!sigint_received) {
         }
-        */
-        while(1) {
+
+        printf("detaching kprobes...\n");
+        err = bpf_detach_kprobe("enter_ksys_write");
+        if(err) {
+                return -1; 
         }
-  return 0;
+
+        err = bpf_detach_kprobe("exit_ksys_write");
+        if(err) {
+               return -1;
+        }
+
+        return 0;
 }

@@ -6,14 +6,7 @@
 # it under the terms of the GNU General Public License version 2
 # as published by the Free Software Foundation.
 #
-# Build bpf userspace code out-of-tree by referencing local copies of
-# bpf .c and .h files.
 #
-# - bpf.[ch] are copies of tools/lib/bpf/bpf.[ch]
-# - bpf_load.[ch] are copies are samples/bpf/bpf_load.[ch], with references
-#   to #include the unneeded libbpf.h removed, replaced by references to bpf.h
-# - bpf_util.h is a copy of tools/testing/selftests/bpf/bpf_util.h
-# - perf-sys.h is a copy of tools/perf/perf-sys.h
 #
 
 
@@ -29,13 +22,6 @@ LINUXINCLUDE = -I$(linuxhdrs)/tools/include \
 	       -I$(linuxhdrs)/usr/include/ \
 	       -I/usr/include/ 
 
-prefix ?= /usr/local
-
-INSTALLPATH = $(prefix)/bin
-
-install_PROGRAM = install
-install_DIR = install -d
-
 LDLIBS = -lelf -lbcc
 
 all: $(USERPROG)
@@ -50,10 +36,3 @@ clean:
 
 $(PROGS): $(OBJS)
 	$(CC) -g -o $@ $(@).o $(CFLAGS) $(LDLIBS)
-
-install: $(PROGS)
-	$(install_DIR) -d $(INSTALLPATH) ; \
-	$(install_PROGRAM) $^ -t $(INSTALLPATH)
-
-uninstall: $(PROGS)
-	cd $(INSTALLPATH); rm -f $^
